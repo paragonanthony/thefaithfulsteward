@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { ChevronDown, X } from 'lucide-react';
 import { useApp } from '../App.jsx';
@@ -113,6 +113,29 @@ export function Combo({ options, value, onChange, placeholder = 'Select', disabl
   useEffect(() => {
     listRef.current?.children[hi]?.scrollIntoView?.({ block: 'nearest' });
   }, [hi]);
+  // The list is position: fixed so a scrolling container (e.g. .table-wrap) can't clip it; it opens upward when
+  // there isn't room below, as on the last rows of a table.
+  const [pos, setPos] = useState(null);
+  useLayoutEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const r = ref.current?.getBoundingClientRect();
+      if (!r) return;
+      const gap = 3, margin = 8;
+      const need = Math.min(280, listRef.current?.scrollHeight || 280);
+      const below = window.innerHeight - r.bottom - gap - margin;
+      const above = r.top - gap - margin;
+      const up = below < need && above > below;
+      setPos(up
+        ? { left: r.left, minWidth: r.width, top: 'auto', bottom: window.innerHeight - r.top + gap, maxHeight: Math.min(280, above) }
+        : { left: r.left, minWidth: r.width, top: r.bottom + gap, maxHeight: Math.min(280, below) });
+    };
+    place();
+    const onScroll = (e) => { if (e.target !== listRef.current) place(); };
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', place);
+    return () => { window.removeEventListener('scroll', onScroll, true); window.removeEventListener('resize', place); };
+  }, [open, filtered.length]);
 
   const choose = (o) => {
     if (o?.create) { onCreate(text.trim()); setOpen(false); setText(''); return; }
@@ -146,7 +169,7 @@ export function Combo({ options, value, onChange, placeholder = 'Select', disabl
         ? <button type="button" className="combo-clear" tabIndex={-1} onClick={() => choose(null)} aria-label="Clear"><X size={15} /></button>
         : <ChevronDown size={16} className="combo-caret" aria-hidden="true" />}
       {open && !disabled && (
-        <ul className="combo-list" ref={listRef} role="listbox">
+        <ul className="combo-list" ref={listRef} role="listbox" style={pos ? { position: 'fixed', ...pos } : undefined}>
           {filtered.filter((o) => !o.create).length === 0 && <li className="combo-empty">No matches</li>}
           {filtered.map((o, i) => (
             <li key={o.value} role="option" aria-selected={i === hi}
