@@ -223,6 +223,7 @@ function ImportDialog({ accountId, onClose, onDone }) {
   );
 }
 
+const FEED_PAGE_SIZE = 50;
 const LIVE_SOURCES = ['simplefin', 'stripe', 'plaid'];
 const createChoices = (amt) => [
   ...(amt > 0 ? [['income', 'Income', '/income/new'], ['deposit', 'Deposit', '/deposits/new']] : [['expense', 'Expense', '/expenses/new']]),
@@ -318,14 +319,14 @@ export default function BankFeed() {
   const navigate = useNavigate();
   const options = useAccountOptions((a) => isBanking(a) && !a.is_undeposited_funds);
   const setAccountId = (v) => { setAccountIdState(v); try { sessionStorage.setItem('feed:account', v ?? ''); } catch { /* ignore */ } };
-  // 500 lines a page; changing the account or tab goes back to page 1.
+  // 50 lines a page (each Not Matched line holds two pickers and two selects); changing the account or tab goes back to page 1.
   const [pg, setPg] = useState({ key: '', page: 1 });
   const [sort, onSort] = useSort('sort:/bank-feed');
   const pageKey = `${accountId}|${status}|${sort?.key}|${sort?.dir}`;
   const page = pg.key === pageKey ? pg.page : 1;
   const setPage = (p) => setPg({ key: pageKey, page: p });
   const { data, error, reload } = useLoad(
-    () => (accountId ? api.get(`/bank-feed${qs({ accountId, status, page, sort: sort?.key, dir: sort?.dir })}`) : Promise.resolve(null)),
+    () => (accountId ? api.get(`/bank-feed${qs({ accountId, status, page, pageSize: FEED_PAGE_SIZE, sort: sort?.key, dir: sort?.dir })}`) : Promise.resolve(null)),
     [accountId, status, page, sort?.key, sort?.dir],
   );
 
@@ -404,7 +405,7 @@ export default function BankFeed() {
             { value: 'matched', label: 'Matched', count: counts.matched || 0 },
             { value: 'ignored', label: 'Ignored', count: counts.ignored || 0 },
           ]} />
-          {data && <Pager page={page} pageSize={data.pageSize || 500} total={data.total || 0} onPage={setPage} scroll={false} />}
+          {data && <Pager page={page} pageSize={data.pageSize || FEED_PAGE_SIZE} total={data.total || 0} onPage={setPage} scroll={false} />}
           <div className="table-wrap">
             <table className="table">
               <thead>
@@ -421,12 +422,12 @@ export default function BankFeed() {
             </table>
             {data && !data.items.length && <Empty>{status === 'unmatched' ? 'Nothing to match. Import a statement file to bring in new bank activity.' : 'No lines.'}</Empty>}
           </div>
-          {data && <Pager page={page} pageSize={data.pageSize || 500} total={data.total || 0} onPage={setPage} />}
+          {data && <Pager page={page} pageSize={data.pageSize || FEED_PAGE_SIZE} total={data.total || 0} onPage={setPage} />}
         </>
       )}
       {classifying && (
         <AutoClassifyDialog accountId={accountId} accountName={options.find((o) => String(o.value) === String(accountId))?.label || 'this account'}
-          unassigned={(data?.items || []).filter((i) => !(assigned[i.id] || i).assigned_by).length}
+          unassigned={(data?.unassigned || 0) - (data?.items || []).filter((i) => !i.assigned_by && assigned[i.id]?.assigned_by).length}
           onClose={() => setClassifying(false)}
           onDone={(r) => {
             setClassifying(false);

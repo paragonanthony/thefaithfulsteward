@@ -35,8 +35,10 @@ r.get('/', ah(async (req, res) => {
       ${pg ? `LIMIT ${pg.size} OFFSET ${pg.offset}` : 'LIMIT 1000'}`,
     [req.orgId, acct.id, status],
   );
+  // `unassigned`: Not Matched lines no one (and no rule) has assigned, across every page — what Auto Classify works on.
   const { rows: counts } = await query(
-    'SELECT status, COUNT(*)::int AS n FROM bank_feed_items WHERE organization_id = $1 AND account_id = $2 GROUP BY status',
+    `SELECT status, COUNT(*)::int AS n, COUNT(*) FILTER (WHERE assigned_by IS NULL)::int AS unassigned
+       FROM bank_feed_items WHERE organization_id = $1 AND account_id = $2 GROUP BY status`,
     [req.orgId, acct.id],
   );
 
@@ -80,7 +82,8 @@ r.get('/', ah(async (req, res) => {
     }
   }
   const countBy = Object.fromEntries(counts.map((c) => [c.status, c.n]));
-  res.json({ items, counts: countBy, ...(pg ? { total: countBy[status] || 0, page: pg.page, pageSize: pg.size } : {}) });
+  const unassigned = counts.find((c) => c.status === 'unmatched')?.unassigned || 0;
+  res.json({ items, counts: countBy, unassigned, ...(pg ? { total: countBy[status] || 0, page: pg.page, pageSize: pg.size } : {}) });
 }));
 
 /**
