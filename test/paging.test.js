@@ -87,6 +87,9 @@ test('list paging', async (t) => {
     const p2 = await admin.get(`/bank-feed?accountId=${checking}&status=unmatched&page=2`);
     assert.deepEqual([p1.items.length, p2.items.length, p1.total, p1.counts.unmatched], [500, 120, 620, 620]);
     assert.ok(p1.items[0].suggestions, 'suggested matches for the lines on the page');
+    const small = await admin.get(`/bank-feed?accountId=${checking}&status=unmatched&page=2&pageSize=50`);
+    assert.deepEqual([small.items.length, small.pageSize, small.total], [50, 50, 620], 'the Bank Feed screen asks for 50 a page');
+    assert.equal(small.unassigned, 620, 'unassigned counts every Not Matched line, not just the page');
     const big = await admin.get(`/bank-feed?accountId=${checking}&status=unmatched&page=1&sort=amount&dir=asc`);
     assert.equal(Number(big.items[0].amount), -620, 'most money out first');
     assert.equal((await admin.get(`/bank-feed?accountId=${checking}&status=unmatched`)).items.length, 620, 'unpaged: newest 1,000');
