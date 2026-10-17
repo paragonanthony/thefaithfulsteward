@@ -43,26 +43,38 @@ r.get('/', ah(async (req, res) => {
   // Suggest matches for unmatched items: same account, same amount and direction, within 10 days, not already matched.
   // Journal entries are matched on their net effect on this account, once per account.
   if (status === 'unmatched' && items.length) {
+    // Only transactions dated near this page's lines can match, so the candidates stop at its date range ± 10 days.
+    const dates = items.map((i) => Date.parse(i.date));
+    const day = (ms) => new Date(ms).toISOString().slice(0, 10);
+    const from = day(Math.min(...dates) - 10 * 86400000);
+    const to = day(Math.max(...dates) + 10 * 86400000);
     const { rows: candidates } = await query(
       `SELECT t.id, t.transaction_type, t.date, t.amount, t.check_number, c.name AS company_name,
               CASE WHEN t.transaction_type = 'expense' THEN -ROUND(t.amount * 100) ELSE ROUND(t.amount * 100) END::bigint AS signed
          FROM transactions t LEFT JOIN companies c ON c.id = t.company_id
         WHERE t.organization_id = $1 AND t.account_id = $2 AND t.transaction_type IN ('income','expense','deposit')
+          AND t.date BETWEEN $3 AND $4
           AND NOT EXISTS (SELECT 1 FROM bank_feed_items b WHERE b.transaction_id = t.id)
        UNION ALL
        SELECT t.id, t.transaction_type, t.date, ABS(SUM(d.amount))::numeric(14,2), NULL, COALESCE(t.memo, CASE WHEN t.transaction_type = 'transfer' THEN 'Transfer' END), SUM(ROUND(d.amount * 100))::bigint
          FROM transactions t JOIN transaction_details d ON d.transaction_id = t.id AND d.account_id = $2
         WHERE t.organization_id = $1 AND t.transaction_type IN ('journal', 'transfer')
+          AND t.date BETWEEN $3 AND $4
           AND NOT EXISTS (SELECT 1 FROM bank_feed_items b WHERE b.transaction_id = t.id AND b.account_id = $2)
         GROUP BY t.id
        HAVING SUM(d.amount) <> 0`,
-      [req.orgId, acct.id],
+      [req.orgId, acct.id, from, to],
     );
     const dayDiff = (a, b) => Math.abs(Date.parse(a) - Date.parse(b)) / 86400000;
+    const byCents = new Map();
+    for (const c of candidates) {
+      const k = Number(c.signed);
+      if (!byCents.has(k)) byCents.set(k, []);
+      byCents.get(k).push(c);
+    }
     for (const item of items) {
-      const cents = toCents(item.amount);
-      item.suggestions = candidates
-        .filter((c) => Number(c.signed) === cents && dayDiff(c.date, item.date) <= 10)
+      item.suggestions = (byCents.get(toCents(item.amount)) || [])
+        .filter((c) => dayDiff(c.date, item.date) <= 10)
         .sort((a, b) => dayDiff(a.date, item.date) - dayDiff(b.date, item.date))
         .slice(0, 5);
     }

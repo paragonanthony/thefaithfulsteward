@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, qs } from '../api.js';
 import { Combo, Empty, ErrorBanner, Field, Modal, Page, Pager, SortTh, Tabs, isBanking, useAccountOptions, useCompanyOptions, useLoad, useSort } from '../components/ui.jsx';
@@ -223,6 +223,76 @@ function ImportDialog({ accountId, onClose, onDone }) {
   );
 }
 
+const LIVE_SOURCES = ['simplefin', 'stripe', 'plaid'];
+const createChoices = (amt) => [
+  ...(amt > 0 ? [['income', 'Income', '/income/new'], ['deposit', 'Deposit', '/deposits/new']] : [['expense', 'Expense', '/expenses/new']]),
+  ['journal', 'Journal Entry', '/advanced/journal-entries/new'],
+  ['transfer', 'Transfer', '/register/transfers/new'],
+];
+
+/**
+ * One bank line. Memoized, with stable `actions`, so a change on one line (an assignment, a chosen match) redraws
+ * only that line rather than every line on the page — each Not Matched line holds two searchable pickers.
+ * `a` is the line with its latest assignment applied.
+ */
+const FeedRow = memo(function FeedRow({ item: i, a, status, chosen, adding, companyOptions, lineAccountOptions, actions }) {
+  const amt = Number(i.amount);
+  const sel = chosen ?? i.suggestions?.[0]?.id ?? '';
+  const live = LIVE_SOURCES.includes(i.source) && <span className="badge feed-src" title="Imported from a bank connection">Live</span>;
+  return (
+    <tr>
+      <td>{date(i.date)}</td>
+      {/* Not Matched: long memos wrap (two lines) so the pickers and actions fit on screen */}
+      <td className={status === 'unmatched' ? 'feed-memo' : 'truncate'} title={i.description}>
+        {status === 'unmatched' ? <span className="clamp2">{live}{i.description}</span> : <>{live}{i.description}</>}
+      </td>
+      <td className={`num${amt < 0 ? ' neg' : ''}`}>{money(amt)}</td>
+      {status === 'unmatched' ? (
+        <>
+          <td className="feed-pick"><Combo options={companyOptions} value={a.company_id} onChange={(v) => actions.assign(i, { companyId: v })} placeholder="—" /></td>
+          <td className="feed-pick">
+            <Combo options={lineAccountOptions} value={a.assigned_account_id} onChange={(v) => actions.assign(i, { accountId: v })} placeholder="—" />
+            {a.assigned_by === 'rule' && <div className="muted small" title="Set by a bank feed rule">Rule: {a.rule_name}</div>}
+            {a.assigned_by === 'claude' && <div className="muted small clamp2" title={a.assign_note ? `Auto Classify: ${a.assign_note}` : 'Set by Auto Classify'}><Sparkles size={11} aria-hidden="true" /> {a.assign_note || 'Auto Classify'}</div>}
+          </td>
+          <td className="feed-actions">
+            {i.suggestions?.length > 0 && (
+              <div className="feed-match">
+                <select className="input" value={sel} aria-label="Suggested match" onChange={(e) => actions.choose(i.id, e.target.value)}>
+                  {i.suggestions.map((s) => <option key={s.id} value={s.id}>{date(s.date)} · {TXN_LABEL[s.transaction_type]} · {s.company_name || ''} {s.check_number ? `#${s.check_number}` : ''} · {money(s.amount)}</option>)}
+                </select>
+                <button type="button" className="btn btn-sm btn-primary" onClick={() => actions.act(() => api.post(`/bank-feed/${i.id}/match`, { transactionId: Number(sel) }))}>Match</button>
+              </div>
+            )}
+            <div className="feed-buttons">
+              <button type="button" className="icon-btn quick-add" disabled={!a.assigned_account_id || adding} onClick={() => actions.quickAdd(i)}
+                title={a.assigned_account_id ? `Quick Add: create ${amt > 0 ? 'income' : 'an expense'} from this line and match it` : 'Quick Add needs an account on this line'}
+                aria-label="Quick Add"><Zap size={16} /></button>
+              {/* Creating a transaction uses the line's customer / vendor and account as defaults */}
+              <select className="input create-select" value="" aria-label="Create a transaction"
+                onChange={(e) => e.target.value && actions.navigate(`${e.target.value}?feed=${i.id}`)}>
+                <option value="">Create…</option>
+                {createChoices(amt).map(([k, label, path]) => <option key={k} value={path}>{label}</option>)}
+              </select>
+              <button type="button" className="icon-btn" title="Create a rule from this line" aria-label="Create a rule from this line" onClick={() => actions.ruleFrom({ ...i, ...a })}><Wand2 size={16} /></button>
+              <button type="button" className="icon-btn" title="Ignore this line" aria-label="Ignore this line" onClick={() => actions.act(() => api.post(`/bank-feed/${i.id}/ignore`))}><EyeOff size={16} /></button>
+            </div>
+          </td>
+        </>
+      ) : (
+        <>
+          <td>{i.company_name}</td>
+          <td>{i.transaction_id ? <Link to={txnPath(i.transaction_type, i.transaction_id)}>{TXN_LABEL[i.transaction_type]} {date(i.txn_date)}</Link> : <span className="muted">—</span>}</td>
+          <td className="actions">
+            <button type="button" className="btn btn-sm" onClick={() => actions.act(() => api.post(`/bank-feed/${i.id}/clear`))}>Clear</button>
+            {status === 'ignored' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => window.confirm('Delete this imported line?') && actions.act(() => api.del(`/bank-feed/${i.id}`))}>Delete</button>}
+          </td>
+        </>
+      )}
+    </tr>
+  );
+});
+
 export default function BankFeed() {
   // ?account=ID&status=matched opens a given account and tab (e.g. from a transaction's "View in bank feed" link).
   const [search] = useSearchParams();
@@ -240,7 +310,7 @@ export default function BankFeed() {
   const [assigned, setAssigned] = useState({}); // feed item id -> latest assignment (saved without reloading the list)
   const { lookups } = useApp();
   const companyOptions = useCompanyOptions();
-  const lineAccountOptions = useAccountOptions((a) => String(a.id) !== String(accountId));
+  const lineAccountOptions = useAccountOptions((a) => String(a.id) !== String(accountId), { key: accountId });
   const companiesById = useMemo(() => Object.fromEntries((lookups?.companies || []).map((c) => [c.id, c])), [lookups]);
   // Sync Now appears once a bank connection feeds at least one account.
   const { data: conn, reload: reloadConn } = useLoad(() => api.get('/bank-connections/status').catch(() => null), []);
@@ -291,11 +361,18 @@ export default function BankFeed() {
       reload();
     } catch (e) { setErr(e); } finally { setAdding(null); }
   };
-  const CREATE = (amt) => [
-    ...(amt > 0 ? [['income', 'Income', '/income/new'], ['deposit', 'Deposit', '/deposits/new']] : [['expense', 'Expense', '/expenses/new']]),
-    ['journal', 'Journal Entry', '/advanced/journal-entries/new'],
-    ['transfer', 'Transfer', '/register/transfers/new'],
-  ];
+  // The rows get one stable set of actions that call the latest handlers, so FeedRow's memo holds across renders.
+  const latest = useRef();
+  latest.current = { act, assign, quickAdd, navigate };
+  const choose = useCallback((id, v) => setChoice((c) => ({ ...c, [id]: v })), []);
+  const rowActions = useMemo(() => ({
+    act: (fn) => latest.current.act(fn),
+    assign: (item, patch) => latest.current.assign(item, patch),
+    quickAdd: (item) => latest.current.quickAdd(item),
+    navigate: (to) => latest.current.navigate(to),
+    choose,
+    ruleFrom: setRuleFrom,
+  }), [choose]);
   const syncNow = async () => {
     setSyncing(true); setErr(null); setNotice(null);
     try {
@@ -336,65 +413,10 @@ export default function BankFeed() {
                   : <tr><SortTh k="date" sort={sort} onSort={onSort} first="desc">Date</SortTh><SortTh k="description" sort={sort} onSort={onSort}>Bank Memo</SortTh><SortTh k="amount" sort={sort} onSort={onSort} className="num" first="desc">Amount</SortTh><th>To/From</th><th>Transaction</th><th /></tr>}
               </thead>
               <tbody>
-                {data?.items.map((i) => {
-                  const amt = Number(i.amount);
-                  const sel = choice[i.id] ?? i.suggestions?.[0]?.id ?? '';
-                  const a = assigned[i.id] || i;
-                  return (
-                    <tr key={i.id}>
-                      <td>{date(i.date)}</td>
-                      {/* Not Matched: long memos wrap (two lines) so the pickers and actions fit on screen */}
-                      <td className={status === 'unmatched' ? 'feed-memo' : 'truncate'} title={i.description}>
-                        {status === 'unmatched'
-                          ? <span className="clamp2">{['simplefin', 'stripe', 'plaid'].includes(i.source) && <span className="badge feed-src" title="Imported from a bank connection">Live</span>}{i.description}</span>
-                          : <>{['simplefin', 'stripe', 'plaid'].includes(i.source) && <span className="badge feed-src" title="Imported from a bank connection">Live</span>}{i.description}</>}
-                      </td>
-                      <td className={`num${amt < 0 ? ' neg' : ''}`}>{money(amt)}</td>
-                      {status === 'unmatched' ? (
-                        <>
-                          <td className="feed-pick"><Combo options={companyOptions} value={a.company_id} onChange={(v) => assign(i, { companyId: v })} placeholder="—" /></td>
-                          <td className="feed-pick">
-                            <Combo options={lineAccountOptions} value={a.assigned_account_id} onChange={(v) => assign(i, { accountId: v })} placeholder="—" />
-                            {a.assigned_by === 'rule' && <div className="muted small" title="Set by a bank feed rule">Rule: {a.rule_name}</div>}
-                            {a.assigned_by === 'claude' && <div className="muted small clamp2" title={a.assign_note ? `Auto Classify: ${a.assign_note}` : 'Set by Auto Classify'}><Sparkles size={11} aria-hidden="true" /> {a.assign_note || 'Auto Classify'}</div>}
-                          </td>
-                          <td className="feed-actions">
-                            {i.suggestions?.length > 0 && (
-                              <div className="feed-match">
-                                <select className="input" value={sel} aria-label="Suggested match" onChange={(e) => setChoice({ ...choice, [i.id]: e.target.value })}>
-                                  {i.suggestions.map((s) => <option key={s.id} value={s.id}>{date(s.date)} · {TXN_LABEL[s.transaction_type]} · {s.company_name || ''} {s.check_number ? `#${s.check_number}` : ''} · {money(s.amount)}</option>)}
-                                </select>
-                                <button type="button" className="btn btn-sm btn-primary" onClick={() => act(() => api.post(`/bank-feed/${i.id}/match`, { transactionId: Number(sel) }))}>Match</button>
-                              </div>
-                            )}
-                            <div className="feed-buttons">
-                              <button type="button" className="icon-btn quick-add" disabled={!a.assigned_account_id || adding === i.id} onClick={() => quickAdd(i)}
-                                title={a.assigned_account_id ? `Quick Add: create ${amt > 0 ? 'income' : 'an expense'} from this line and match it` : 'Quick Add needs an account on this line'}
-                                aria-label="Quick Add"><Zap size={16} /></button>
-                              {/* Creating a transaction uses the line's customer / vendor and account as defaults */}
-                              <select className="input create-select" value="" aria-label="Create a transaction"
-                                onChange={(e) => e.target.value && navigate(`${e.target.value}?feed=${i.id}`)}>
-                                <option value="">Create…</option>
-                                {CREATE(amt).map(([k, label, path]) => <option key={k} value={path}>{label}</option>)}
-                              </select>
-                              <button type="button" className="icon-btn" title="Create a rule from this line" aria-label="Create a rule from this line" onClick={() => setRuleFrom({ ...i, ...a })}><Wand2 size={16} /></button>
-                              <button type="button" className="icon-btn" title="Ignore this line" aria-label="Ignore this line" onClick={() => act(() => api.post(`/bank-feed/${i.id}/ignore`))}><EyeOff size={16} /></button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td>{i.company_name}</td>
-                          <td>{i.transaction_id ? <Link to={txnPath(i.transaction_type, i.transaction_id)}>{TXN_LABEL[i.transaction_type]} {date(i.txn_date)}</Link> : <span className="muted">—</span>}</td>
-                          <td className="actions">
-                            <button type="button" className="btn btn-sm" onClick={() => act(() => api.post(`/bank-feed/${i.id}/clear`))}>Clear</button>
-                            {status === 'ignored' && <button type="button" className="btn btn-sm btn-ghost" onClick={() => window.confirm('Delete this imported line?') && act(() => api.del(`/bank-feed/${i.id}`))}>Delete</button>}
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  );
-                })}
+                {data?.items.map((i) => (
+                  <FeedRow key={i.id} item={i} a={assigned[i.id] || i} status={status} chosen={choice[i.id]} adding={adding === i.id}
+                    companyOptions={companyOptions} lineAccountOptions={lineAccountOptions} actions={rowActions} />
+                ))}
               </tbody>
             </table>
             {data && !data.items.length && <Empty>{status === 'unmatched' ? 'Nothing to match. Import a statement file to bring in new bank activity.' : 'No lines.'}</Empty>}
