@@ -19,6 +19,10 @@ const TYPES = {
   heif: { type: 'image/heif', inline: false, claude: null },
   txt: { type: 'text/plain', inline: false, claude: 'text' },
   csv: { type: 'text/csv', inline: false, claude: 'text' },
+  // Bank statement downloads (OFX; QFX and QBO are OFX for Quicken / QuickBooks), read without Claude.
+  ofx: { type: 'application/x-ofx', inline: false, claude: null },
+  qfx: { type: 'application/x-ofx', inline: false, claude: null },
+  qbo: { type: 'application/x-ofx', inline: false, claude: null },
   doc: { type: 'application/msword', inline: false, claude: null },
   docx: { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', inline: false, claude: null },
   xls: { type: 'application/vnd.ms-excel', inline: false, claude: null },

@@ -151,9 +151,9 @@ function ImportDialog({ accountId, onClose, onDone }) {
         <button type="button" className="btn btn-primary" disabled={!good.length || busy} onClick={doImport}>Import {good.length || ''} lines</button></>}>
       <ErrorBanner error={error} />
       <p className="muted">
-        Download your statement from your bank as a CSV, OFX or QFX file{readsStatements ? <>, or upload the <strong>PDF statement</strong> or a <strong>photo or scan</strong> of it, and Claude will read the transactions for you to review</> : ''}. Lines already imported are skipped.
+        Download your statement from your bank as a CSV, OFX, QFX or QBO file{readsStatements ? <>, or upload the <strong>PDF statement</strong> or a <strong>photo or scan</strong> of it, and Claude will read the transactions for you to review</> : ''}. Lines already imported are skipped.
       </p>
-      <input type="file" accept={`.csv,.ofx,.qfx,text/csv${readsStatements ? ',.pdf,.png,.jpg,.jpeg,.gif,.webp,application/pdf,image/*' : ''}`} onChange={onFile} disabled={file?.kind === 'statement' && !file.result} />
+      <input type="file" accept={`.csv,.ofx,.qfx,.qbo,text/csv${readsStatements ? ',.pdf,.png,.jpg,.jpeg,.gif,.webp,application/pdf,image/*' : ''}`} onChange={onFile} disabled={file?.kind === 'statement' && !file.result} />
       {file?.kind === 'statement' && !file.result && <div className="alert alert-info mt">Reading {file.name} with Claude… This can take a minute for a long statement.</div>}
       {st && (
         <div className="statement-summary mt">
