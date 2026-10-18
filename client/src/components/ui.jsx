@@ -288,10 +288,15 @@ export function SortTh({ k, sort, onSort, first = 'asc', className = '', style, 
   );
 }
 
-/** "Showing 501–1,000 of 2,663" with First / Previous / Next / Last; hidden when everything fits on one page. */
+/**
+ * "Showing 501–1,000 of 2,663" with First / Previous / Next / Last; hidden when everything fits on one page.
+ * When the rows on the last page go away (matched, deleted), it moves back to the new last page rather than leaving
+ * an empty page with no buttons to leave it.
+ */
 export function Pager({ page, pageSize, total, onPage, scroll = true }) {
+  const pages = Math.max(1, Math.ceil((total || 0) / pageSize));
+  useEffect(() => { if (page > pages) onPage(pages); }, [page, pages]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!total || total <= pageSize) return null;
-  const pages = Math.ceil(total / pageSize);
   const go = (p) => { onPage(p); if (scroll) window.scrollTo(0, 0); };
   const n = (x) => x.toLocaleString();
   return (
