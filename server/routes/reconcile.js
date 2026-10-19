@@ -9,6 +9,7 @@ import { BANKING_TYPES } from '../accountTypes.js';
 import { parseUpload, saveAttachment, typeInfo } from '../services/attachments.js';
 import { NOT_SET_MESSAGE, extractStatement, extractionConfigured } from '../services/extraction.js';
 import { cleanExtract, matchStatement } from '../services/statementMatch.js';
+import { isStatementFile, parseStatementFile } from '../services/statementFile.js';
 
 const r = Router();
 r.use(requireAuth, requireOrg);
@@ -67,15 +68,28 @@ async function match(req, account, recId, extract) {
 }
 
 /**
- * Read a PDF or image of the statement with Claude. Returns the extract (lines, period, balances) and how its lines
- * match the transactions waiting to be cleared. With reconciliationId, the extract is saved on that reconciliation.
+ * Read the statement: a CSV, OFX, QFX or QBO download directly, or a PDF or image with Claude (a CSV whose columns
+ * can't be worked out goes to Claude too, when the organization has a key). Returns the extract (lines, period,
+ * balances) and how its lines match the transactions waiting to be cleared. With reconciliationId, the extract is
+ * saved on that reconciliation.
  */
 r.post('/extract-statement', ah(async (req, res) => {
   const { account, recId } = await statementTarget(req);
-  if (!(await extractionConfigured({ query }, req.orgId))) throw new HttpError(503, NOT_SET_MESSAGE);
   const file = parseUpload(req.body);
-  if (!typeInfo(file.fileName)?.claude) throw new HttpError(400, 'Upload the statement as a PDF or an image (JPEG, PNG, GIF or WebP).');
-  const result = await extractStatement({ query }, req.orgId, file, account);
+  const canAsk = () => extractionConfigured({ query }, req.orgId);
+  let result;
+  if (isStatementFile(file.fileName)) {
+    try {
+      result = parseStatementFile(file, account);
+    } catch (err) {
+      if (!(err instanceof HttpError) || !typeInfo(file.fileName)?.claude || !(await canAsk())) throw err;
+      result = await extractStatement({ query }, req.orgId, file, account);
+    }
+  } else {
+    if (!(await canAsk())) throw new HttpError(503, `${NOT_SET_MESSAGE} Or upload the statement as a CSV, OFX, QFX or QBO file from your bank.`);
+    if (!typeInfo(file.fileName)?.claude) throw new HttpError(400, 'Upload the statement as a CSV, OFX, QFX or QBO file, or as a PDF or an image (JPEG, PNG, GIF or WebP).');
+    result = await extractStatement({ query }, req.orgId, file, account);
+  }
   const extract = cleanExtract({ ...result, fileName: file.fileName });
   const m = await match(req, account, recId, extract);
   if (recId) await query('UPDATE reconciliations SET statement_extract = $1 WHERE transaction_id = $2', [JSON.stringify({ ...extract, missing: m.missing }), recId]);

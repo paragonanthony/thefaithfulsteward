@@ -177,6 +177,15 @@ export default function ReconcileEdit() {
       if (r.attachment) { if (isNew) setPendingFiles((p) => [...p, r.attachment]); else setFilesKey((k) => k + 1); }
     } catch (err) { setError(err); } finally { setReading(false); }
   };
+  // Some downloads (credit card CSVs especially) list money in and out the other way round.
+  const reverseSigns = async () => {
+    setBusy(true); setError(null);
+    try {
+      const x = { ...extract, items: extract.items.map((i) => ({ ...i, amount: (-Number(i.amount)).toFixed(2) })) };
+      const { match: m } = await api.post('/reconciliations/match-statement', { accountId: rec.accountId, reconciliationId: isNew ? undefined : Number(id), extract: x });
+      applyStatement(x, m);
+    } catch (err) { setError(err); } finally { setBusy(false); }
+  };
   const createFrom = async (index, kind) => {
     setBusy(true); setError(null);
     try {
@@ -225,13 +234,19 @@ export default function ReconcileEdit() {
         {adjRow('serviceCharge', 'Service Charge')}
         {adjRow('interest', 'Interest Earned')}
         {isCard && <p className="muted small">Credit card balances are entered as the amount owed. Charges increase the balance; credits and payments reduce it.</p>}
-        {rec.accountId && !locked && canRead && !extract && (
+        {rec.accountId && !locked && !extract && (
           <div className="row gap wrap statement-upload">
-            <button type="button" className="btn btn-sm" disabled={reading || busy} onClick={() => fileInput.current?.click()}>{reading ? 'Reading statement…' : 'Upload statement (PDF or image)'}</button>
-            <span className="muted small">{reading ? 'Claude is reading the statement. This can take a minute for a long statement.' : 'Claude reads the statement, fills in the date, ending balance, service charge and interest, and clears the transactions on it.'}</span>
+            <button type="button" className="btn btn-sm" disabled={reading || busy} onClick={() => fileInput.current?.click()}>
+              {reading ? 'Reading statement…' : `Upload statement (${canRead ? 'PDF, image, ' : ''}CSV, OFX, QFX or QBO)`}
+            </button>
+            <span className="muted small">
+              {reading ? (canRead ? 'Reading the statement. Claude can take a minute for a long PDF statement.' : 'Reading the statement…')
+                : `${canRead ? 'Claude reads a PDF or image of the statement; a CSV, OFX, QFX or QBO download from your bank is read directly. ' : 'Download the statement from your bank as a CSV, OFX, QFX or QBO file. '}The date, ending balance, service charge and interest are filled in, and the transactions on it are cleared.`}
+            </span>
           </div>
         )}
-        <input ref={fileInput} type="file" hidden accept=".pdf,.png,.jpg,.jpeg,.gif,.webp,application/pdf,image/*" onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; if (f) readStatement(f); }} />
+        <input ref={fileInput} type="file" hidden onChange={(e) => { const f = e.target.files[0]; e.target.value = ''; if (f) readStatement(f); }}
+          accept={`.csv,.ofx,.qfx,.qbo,text/csv${canRead ? ',.pdf,.png,.jpg,.jpeg,.gif,.webp,application/pdf,image/*' : ''}`} />
       </div>
 
       {extract && rec.accountId && (
@@ -244,6 +259,7 @@ export default function ReconcileEdit() {
               {extract.statement.balanced === true && <span className="badge ok">Lines match the balances</span>}
             </div>
             {!locked && <span className="row gap">
+              <button type="button" className="btn btn-sm btn-ghost" disabled={reading || busy} onClick={reverseSigns} title="Money in and out came out swapped">Reverse signs</button>
               <button type="button" className="btn btn-sm btn-ghost" disabled={reading || busy} onClick={() => fileInput.current?.click()}>{reading ? 'Reading…' : 'Upload a different statement'}</button>
               <button type="button" className="btn btn-sm btn-ghost" onClick={() => { setExtract(null); setMatch(null); }}>Remove</button>
             </span>}
