@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { api, qs } from '../api.js';
-import { Combo, DateRange, Empty, ErrorBanner, Field, Page, Pager, SortTh, isBanking, sortRows, useAccountOptions, useLoad, useSort } from '../components/ui.jsx';
+import { BankAccountSelect, DateRange, Empty, ErrorBanner, Field, Page, Pager, SortTh, isBanking, sortRows, useAccountOptions, useLoad, useSort } from '../components/ui.jsx';
 import { TXN_LABEL, acct, date, money, txnPath } from '../format.js';
 import { useDateRange } from './TxnList.jsx';
 
@@ -27,22 +27,29 @@ export default function Register() {
   const pageKey = `${accountId}|${range.from}|${range.to}`;
   const page = pg.key === pageKey ? pg.page : 1;
   const setPage = (p) => setPg({ key: pageKey, page: p });
-  // Sorting by a column (other than the usual date order) hides the running balance's "balance forward" row.
-  const [sort, onSort] = useSort('sort:/register');
-  const all = data ? sortRows(data.entries, sort, {
-    date: (e) => e.date, type: (e) => TXN_LABEL[e.type] || '', number: (e) => e.number || '', toFrom: (e) => e.toFrom || '', memo: (e) => e.memo || '',
-    cleared: (e) => (e.cleared ? 1 : 0), amount: (e) => e.amount, balance: (e) => e.balance,
-  }) : [];
-  const dateOrder = !sort || (sort.key === 'date' && sort.dir === 'asc');
+  // Newest first by default. In date order (either way) the running balance shows a "balance forward" row: above the
+  // page's entries oldest first, below them newest first. Sorting by another column hides it.
+  const [sort, onSort] = useSort('sort:/register', { key: 'date', dir: 'desc' });
+  const newestFirst = sort?.key === 'date' && sort.dir === 'desc';
+  const all = !data ? [] : newestFirst ? [...data.entries].reverse() // the server's order, so same-day entries keep their balances' order
+    : sortRows(data.entries, sort, {
+      date: (e) => e.date, type: (e) => TXN_LABEL[e.type] || '', number: (e) => e.number || '', toFrom: (e) => e.toFrom || '', memo: (e) => e.memo || '',
+      cleared: (e) => (e.cleared ? 1 : 0), amount: (e) => e.amount, balance: (e) => e.balance,
+    });
+  const oldestFirst = !sort || (sort.key === 'date' && sort.dir === 'asc');
   const entries = all.slice((page - 1) * PAGE, page * PAGE);
-  const carried = data && page > 1 ? all[(page - 1) * PAGE - 1]?.balance : data?.openingBalance;
+  // The balance before the oldest entry on the page: the entry before it, or the account's opening balance.
+  const lastPage = page * PAGE >= all.length;
+  const carried = !data ? null : oldestFirst ? (page > 1 ? all[(page - 1) * PAGE - 1]?.balance : data.openingBalance)
+    : (lastPage ? data.openingBalance : all[page * PAGE]?.balance);
+  const forwardRow = (first) => <tr className="muted"><td colSpan={7}>{first ? 'Beginning balance' : 'Balance forward'}</td><td className="num">{acct(carried)}</td></tr>;
   const pager = data && <Pager page={page} pageSize={PAGE} total={data.entries.length} onPage={setPage} />;
 
   return (
     <Page title="Bank Account Register"
       actions={<Link className="btn btn-primary" to={`/register/transfers/new${accountId ? `?from=${accountId}` : ''}`}><Plus size={16} aria-hidden="true" />Bank Transfer</Link>}>
       <DateRange from={range.from} to={range.to} onChange={setRange}>
-        <Field label="Bank Account" className="grow"><Combo options={options} value={accountId} onChange={setAccountId} placeholder="Select Bank Account" /></Field>
+        <Field label="Bank Account" className="grow"><BankAccountSelect options={options} value={accountId} onChange={setAccountId} allowClear={false} /></Field>
       </DateRange>
       <ErrorBanner error={error} />
       {!accountId && <Empty>Select a bank or credit card account to see its register.</Empty>}
@@ -50,9 +57,9 @@ export default function Register() {
       {data && (
         <div className="table-wrap">
           <table className="table clickable">
-            <thead><tr><SortTh k="date" sort={sort} onSort={onSort}>Date</SortTh><SortTh k="type" sort={sort} onSort={onSort}>Type</SortTh><SortTh k="number" sort={sort} onSort={onSort}>Number</SortTh><SortTh k="toFrom" sort={sort} onSort={onSort}>To/From</SortTh><SortTh k="memo" sort={sort} onSort={onSort}>Memo</SortTh><SortTh k="cleared" sort={sort} onSort={onSort} className="center" first="desc">Cleared</SortTh><SortTh k="amount" sort={sort} onSort={onSort} className="num" first="desc">Amount</SortTh><SortTh k="balance" sort={sort} onSort={onSort} className="num" first="desc">Balance</SortTh></tr></thead>
+            <thead><tr><SortTh k="date" sort={sort} onSort={onSort} first="desc">Date</SortTh><SortTh k="type" sort={sort} onSort={onSort}>Type</SortTh><SortTh k="number" sort={sort} onSort={onSort}>Number</SortTh><SortTh k="toFrom" sort={sort} onSort={onSort}>To/From</SortTh><SortTh k="memo" sort={sort} onSort={onSort}>Memo</SortTh><SortTh k="cleared" sort={sort} onSort={onSort} className="center" first="desc">Cleared</SortTh><SortTh k="amount" sort={sort} onSort={onSort} className="num" first="desc">Amount</SortTh><SortTh k="balance" sort={sort} onSort={onSort} className="num" first="desc">Balance</SortTh></tr></thead>
             <tbody>
-              {dateOrder && <tr className="muted"><td colSpan={7}>{page > 1 ? 'Balance forward' : 'Beginning balance'}</td><td className="num">{acct(carried)}</td></tr>}
+              {oldestFirst && forwardRow(page === 1)}
               {entries.map((e, i) => (
                 <tr key={i} onClick={() => e.transactionId && navigate(txnPath(e.type, e.transactionId))}>
                   <td>{date(e.date)}</td>
@@ -65,6 +72,7 @@ export default function Register() {
                   <td className="num">{acct(e.balance)}</td>
                 </tr>
               ))}
+              {newestFirst && forwardRow(lastPage)}
             </tbody>
           </table>
           {!loading && !data.entries.length && <Empty>No activity in this date range.</Empty>}
