@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Plus, Printer, Save, Trash2 } from 'lucide-react';
 import { api, qs } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, Modal, Page, isBanking, useAccountOptions, useGoBack } from '../components/ui.jsx';
+import { BankAccountSelect, ErrorBanner, Field, Modal, Page, isBanking, useAccountOptions, useGoBack } from '../components/ui.jsx';
 import { date, feedReturn, money, round2, today } from '../format.js';
 import GlEntries from '../components/GlEntries.jsx';
 import AuditInfo from '../components/AuditInfo.jsx';
@@ -97,7 +97,7 @@ export default function DepositEdit() {
       <form className="card form" onSubmit={(e) => { e.preventDefault(); save('close'); }}>
         <div className="grid g4">
           <Field label="Date" required><input type="date" className="input" value={dep.date} onChange={(e) => setDep({ ...dep, date: e.target.value })} /></Field>
-          <Field label="Deposit To" required className="span2"><Combo options={bankOptions} value={dep.accountId} onChange={(v) => setDep({ ...dep, accountId: v })} allowClear={false} disabled={meta?.reconciled} /></Field>
+          <Field label="Deposit To" required className="span2"><BankAccountSelect options={bankOptions} value={dep.accountId} onChange={(v) => setDep({ ...dep, accountId: v })} allowClear={false} disabled={meta?.reconciled} /></Field>
           <Field label="Amount"><div className="input readonly num">{money(total)}</div></Field>
         </div>
         <Field label="Memo"><input className="input" value={dep.memo} onChange={(e) => setDep({ ...dep, memo: e.target.value })} /></Field>

@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Plus, Save, Trash2 } from 'lucide-react';
 import { api } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useFundOptions, useGoBack } from '../components/ui.jsx';
+import { BankAccountSelect, Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useFundOptions, useGoBack } from '../components/ui.jsx';
 import GlEntries from '../components/GlEntries.jsx';
 import AuditInfo from '../components/AuditInfo.jsx';
 import FeedMatchNote from '../components/FeedMatchNote.jsx';
@@ -112,10 +112,10 @@ export default function TransferEdit() {
           <Field label="Amount" required><MoneyInput currency value={tr.amount} onChange={set('amount')} placeholder="0.00" disabled={reconciled} /></Field>
         </div>
         <div className="transfer-accounts">
-          <Field label="From account" required><Combo options={accountOptions} value={tr.fromAccountId} onChange={set('fromAccountId')} placeholder="Select account" disabled={reconciled} /></Field>
+          <Field label="From account" required><BankAccountSelect options={accountOptions} value={tr.fromAccountId} onChange={set('fromAccountId')} placeholder="Select account" allowClear={false} disabled={reconciled} /></Field>
           <button type="button" className="icon-btn swap" title="Swap From and To" disabled={reconciled}
             onClick={() => setTr({ ...tr, fromAccountId: tr.toAccountId, toAccountId: tr.fromAccountId })}>⇄</button>
-          <Field label="To account" required><Combo options={accountOptions} value={tr.toAccountId} onChange={set('toAccountId')} placeholder="Select account" disabled={reconciled} /></Field>
+          <Field label="To account" required><BankAccountSelect options={accountOptions} value={tr.toAccountId} onChange={set('toAccountId')} placeholder="Select account" allowClear={false} disabled={reconciled} /></Field>
         </div>
         {tr.fromAccountId && tr.fromAccountId === tr.toAccountId && <p className="warn small flush">From and To must be different accounts.</p>}
         <div className="grid g2">

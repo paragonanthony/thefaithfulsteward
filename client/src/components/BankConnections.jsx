@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { api } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, Modal, isBanking, useAccountOptions, useLoad } from './ui.jsx';
+import { BankAccountSelect, ErrorBanner, Field, Modal, isBanking, useAccountOptions, useLoad } from './ui.jsx';
 import { date, money } from '../format.js';
 
 const BRIDGE_URL = 'https://bridge.simplefin.org/';
@@ -29,7 +29,7 @@ function AccountRow({ acct, options, canEdit, onSaved, onError }) {
         {acct.error_message && <div className="warn small">{acct.error_message}</div>}
       </td>
       <td style={{ minWidth: 240 }}>
-        {canEdit ? <Combo options={options} value={form.accountId} onChange={(v) => setForm({ ...form, accountId: v, isEnabled: v ? form.isEnabled || !acct.account_id : false })} placeholder="Not imported" />
+        {canEdit ? <BankAccountSelect options={options} value={form.accountId} onChange={(v) => setForm({ ...form, accountId: v, isEnabled: v ? form.isEnabled || !acct.account_id : false })} placeholder="Not imported" />
           : acct.ledger_account_name || <span className="muted">Not imported</span>}
       </td>
       <td>{canEdit ? <input type="date" className="input" value={form.syncStartDate || ''} onChange={(e) => setForm({ ...form, syncStartDate: e.target.value })} /> : date(acct.sync_start_date)}</td>

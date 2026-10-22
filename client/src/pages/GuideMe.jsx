@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, Check, FileText, Landmark, Receipt, Wallet } from 'lucide-react';
 import { api } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useCompanyOptions, useFundOptions } from '../components/ui.jsx';
+import { BankAccountSelect, Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useCompanyOptions, useFundOptions } from '../components/ui.jsx';
 import QuickAddCompany from '../components/QuickAddCompany.jsx';
 import { date, money, round2, toNum, today } from '../format.js';
 
@@ -176,7 +176,7 @@ function MoneyFlow({ kind, onSaved }) {
             {f.method && (
               <div className="grid g2 mt">
                 <Field label={isIncome ? 'Where is the money now?' : f.method === 'card' ? 'Which card?' : 'Paid from'} required>
-                  <Combo options={opts} value={f.accountId} onChange={(v) => set({ accountId: v })} placeholder="Choose an account" />
+                  <BankAccountSelect options={opts} value={f.accountId} onChange={(v) => set({ accountId: v })} placeholder="Choose an account" allowClear={false} />
                 </Field>
                 {f.method === 'check' && <Field label="Check number" hint="Optional"><input className="input" value={f.checkNumber} onChange={(e) => set({ checkNumber: e.target.value })} /></Field>}
               </div>
@@ -311,7 +311,7 @@ function DepositFlow({ onSaved }) {
       check: () => (!f.accountId ? 'Choose the bank account.' : !f.date ? 'Enter the date.' : null),
       render: () => (
         <div className="grid g2">
-          <Field label="Bank account" required><Combo options={bankOptions} value={f.accountId} onChange={(v) => setF({ ...f, accountId: v })} placeholder="Choose a bank account" /></Field>
+          <Field label="Bank account" required><BankAccountSelect options={bankOptions} value={f.accountId} onChange={(v) => setF({ ...f, accountId: v })} placeholder="Choose a bank account" allowClear={false} /></Field>
           <Field label="Deposit date" required><input type="date" className="input" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} /></Field>
           <Field label="Note" hint="Optional" className="span2"><input className="input" value={f.memo} onChange={(e) => setF({ ...f, memo: e.target.value })} /></Field>
         </div>

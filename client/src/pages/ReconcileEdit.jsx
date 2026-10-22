@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useFundOptions } from '../components/ui.jsx';
+import { BankAccountSelect, Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useFundOptions } from '../components/ui.jsx';
 import { TXN_LABEL, date, money, round2, toNum, today, txnPath } from '../format.js';
 import AuditInfo from '../components/AuditInfo.jsx';
 import Attachments, { linkPendingAttachments } from '../components/Attachments.jsx';
@@ -225,7 +225,7 @@ export default function ReconcileEdit() {
       <div className="card form">
         <div className="grid g4">
           <Field label="Bank Account" className="span2">
-            {isNew ? <Combo options={bankOptions} value={rec.accountId} onChange={(v) => loadStart(v, rec).catch(setError)} placeholder="Select Bank Account" allowClear={false} />
+            {isNew ? <BankAccountSelect options={bankOptions} value={rec.accountId} onChange={(v) => loadStart(v, rec).catch(setError)} allowClear={false} />
               : <div className="input readonly">{rec.accountName || lookups?.accounts.find((a) => a.id === rec.accountId)?.name}</div>}
           </Field>
           <Field label="Statement Ending Date"><input type="date" className="input" value={rec.statementDate} onChange={(e) => set('statementDate', e.target.value)} disabled={locked} /></Field>
