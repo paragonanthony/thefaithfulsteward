@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { api } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, Modal, MoneyInput, isBanking, useAccountOptions, useCompanyOptions, useLoad } from './ui.jsx';
+import { BankAccountSelect, Combo, ErrorBanner, Field, Modal, MoneyInput, isBanking, useAccountOptions, useCompanyOptions, useLoad } from './ui.jsx';
 import { money } from '../format.js';
 
 const DIRECTIONS = [['any', 'Money in or out'], ['in', 'Money in'], ['out', 'Money out']];
@@ -57,7 +57,7 @@ export function RuleDialog({ rule, initial, onClose, onSaved }) {
           </Field>
           <Field label="Amount from" hint="Optional. The amount is this or more (ignoring + / −)"><MoneyInput currency value={f.minAmount} onChange={set('minAmount')} placeholder="Any" /></Field>
           <Field label="Amount under" hint="Optional. The amount is less than this"><MoneyInput currency value={f.maxAmount} onChange={set('maxAmount')} placeholder="Any" /></Field>
-          <Field label="Bank account" className="span2" hint="Optional. Only lines on this bank or card account"><Combo options={bankOptions} value={f.bankAccountId} onChange={set('bankAccountId')} placeholder="Any bank account" /></Field>
+          <Field label="Bank account" className="span2" hint="Optional. Only lines on this bank or card account"><BankAccountSelect options={bankOptions} value={f.bankAccountId} onChange={set('bankAccountId')} placeholder="Any bank account" /></Field>
         </div>
         <h4>…set</h4>
         <div className="grid g2">

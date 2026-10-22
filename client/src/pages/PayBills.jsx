@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useGoBack } from '../components/ui.jsx';
+import { BankAccountSelect, Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useGoBack } from '../components/ui.jsx';
 import { date, money, round2, toNum, today } from '../format.js';
 
 /** Pay one or more of a vendor's bills, in full or in part, with one check or electronic payment (an expense). */
@@ -82,7 +82,7 @@ export default function PayBills() {
             <Combo options={vendorOptions} value={vendorId} onChange={chooseVendor} placeholder={open && !vendorOptions.length ? 'No unpaid bills' : 'Choose a vendor with unpaid bills'} />
           </Field>
           <Field label="Payment Date" required><input type="date" className="input" value={pay.date} onChange={(e) => setPay({ ...pay, date: e.target.value })} /></Field>
-          <Field label="Pay From" required><Combo options={payFromOptions} value={pay.accountId} onChange={(v) => setPay({ ...pay, accountId: v })} allowClear={false} /></Field>
+          <Field label="Pay From" required><BankAccountSelect options={payFromOptions} value={pay.accountId} onChange={(v) => setPay({ ...pay, accountId: v })} allowClear={false} /></Field>
         </div>
         <div className="grid g4">
           <Field label="Method">

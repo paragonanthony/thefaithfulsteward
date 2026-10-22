@@ -3,7 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { CircleCheck, Plus, Printer, Save, Trash2 } from 'lucide-react';
 import { api } from '../api.js';
 import { useApp } from '../App.jsx';
-import { Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useCompanyOptions, useFundOptions, useGoBack } from '../components/ui.jsx';
+import { BankAccountSelect, Combo, ErrorBanner, Field, MoneyInput, Page, isBanking, useAccountOptions, useCompanyOptions, useFundOptions, useGoBack } from '../components/ui.jsx';
 import { date, feedReturn, money, round2, toNum, today } from '../format.js';
 import GlEntries from '../components/GlEntries.jsx';
 import QuickAddCompany from '../components/QuickAddCompany.jsx';
@@ -325,7 +325,7 @@ export default function TxnEdit({ type }) {
           <Field label="Check Number"><input className="input" value={t.checkNumber} onChange={(e) => setHeader('checkNumber', e.target.value)} disabled={t.method !== 'check'} /></Field>
           <Field label="Ref. Number"><input className="input" value={t.refNumber} onChange={(e) => setHeader('refNumber', e.target.value)} /></Field>
           <Field label={isIncome ? 'Deposit To' : 'Bank Account'} required>
-            <Combo options={bankOptions} value={t.accountId} onChange={(v) => setHeader('accountId', v)} allowClear={false} disabled={reconciled || deposited} />
+            <BankAccountSelect options={bankOptions} value={t.accountId} onChange={(v) => setHeader('accountId', v)} allowClear={false} disabled={reconciled || deposited} />
           </Field>
         </div>
         )}

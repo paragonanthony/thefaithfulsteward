@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { api, qs } from '../api.js';
-import { Combo, Empty, ErrorBanner, Field, Modal, Page, Pager, SortTh, Tabs, isBanking, useAccountOptions, useCompanyOptions, useLoad, useSort } from '../components/ui.jsx';
+import { BankAccountSelect, Combo, Empty, ErrorBanner, Field, Modal, Page, Pager, SortTh, Tabs, isBanking, useAccountOptions, useCompanyOptions, useLoad, useSort } from '../components/ui.jsx';
 import { useApp } from '../App.jsx';
 import { RuleDialog } from '../components/BankFeedRules.jsx';
 import AutoClassifyDialog from '../components/AutoClassify.jsx';
@@ -393,7 +393,7 @@ export default function BankFeed() {
       {accountId && <button type="button" className="btn btn-primary" onClick={() => setImporting(true)}>Import Statement</button>}
     </>}>
       <div className="filter-bar">
-        <Field label="Bank Account" className="grow"><Combo options={options} value={accountId} onChange={setAccountId} placeholder="Select Bank Account" /></Field>
+        <Field label="Bank Account" className="grow"><BankAccountSelect options={options} value={accountId} onChange={setAccountId} allowClear={false} /></Field>
       </div>
       <ErrorBanner error={error || err} onClose={() => setErr(null)} />
       {notice && <div className="alert alert-info">{notice} <button type="button" className="link" onClick={() => setNotice(null)}>✕</button></div>}

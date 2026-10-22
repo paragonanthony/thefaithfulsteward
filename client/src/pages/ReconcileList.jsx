@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import { api, qs } from '../api.js';
-import { Combo, DateRange, Empty, ErrorBanner, Field, Page, isBanking, useAccountOptions, useLoad } from '../components/ui.jsx';
+import { BankAccountSelect, DateRange, Empty, ErrorBanner, Field, Page, isBanking, useAccountOptions, useLoad } from '../components/ui.jsx';
 import { date, money } from '../format.js';
 import { useDateRange } from './TxnList.jsx';
 
@@ -17,7 +17,7 @@ export default function ReconcileList() {
     <Page title="Reconciliations"
       actions={<button type="button" className="btn btn-primary" onClick={() => navigate(`/reconcile/new${accountId ? `?accountId=${accountId}` : ''}`)}><Plus size={16} aria-hidden="true" />Reconcile Account</button>}>
       <DateRange from={range.from} to={range.to} onChange={setRange}>
-        <Field label="Bank Account" className="grow"><Combo options={options} value={accountId} onChange={setAccountId} placeholder="All bank accounts" /></Field>
+        <Field label="Bank Account" className="grow"><BankAccountSelect options={options} value={accountId} onChange={setAccountId} placeholder="All bank accounts" /></Field>
       </DateRange>
       <ErrorBanner error={error} />
       <div className="table-wrap">

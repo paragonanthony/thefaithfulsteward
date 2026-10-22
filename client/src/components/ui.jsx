@@ -184,6 +184,24 @@ export function Combo({ options, value, onChange, placeholder = 'Select', disabl
   );
 }
 
+/**
+ * A standard dropdown of bank / card accounts (options from useAccountOptions), for switching straight from one
+ * account to another. With allowClear the placeholder is a choice (e.g. "All bank accounts"); otherwise it only shows
+ * until an account is picked. onChange gets the option's value (an account id), or null.
+ */
+export function BankAccountSelect({ options, value, onChange, placeholder = 'Select Bank Account', allowClear = true, disabled, id }) {
+  const v = value === null || value === undefined ? '' : String(value);
+  const known = !v || options.some((o) => String(o.value) === v);
+  return (
+    <select id={id} className="input" value={v} disabled={disabled}
+      onChange={(e) => onChange(options.find((o) => String(o.value) === e.target.value)?.value ?? null)}>
+      {(allowClear || !v) && <option value="">{placeholder}</option>}
+      {!known && <option value={v}>(account not available)</option>}
+      {options.map((o) => <option key={o.value} value={String(o.value)}>{o.label}</option>)}
+    </select>
+  );
+}
+
 /** Account choices for a Combo. `key` re-runs the filter when something it depends on changes. */
 export function useAccountOptions(filterFn = () => true, { includeInactive = false, current, key } = {}) {
   const { lookups } = useApp();
