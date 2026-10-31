@@ -687,30 +687,30 @@ itself; otherwise the discovery documents use the address requests arrive on.
 
 ## Running locally
 
-Requires Node.js 20+ and a PostgreSQL server. If you don't have PostgreSQL, the dev script can run a temporary one:
+Requires Node.js 20+, pnpm, and a PostgreSQL server. If you don't have PostgreSQL, the dev script can run a temporary one:
 
 ```bash
-npm install
-npm install --no-save embedded-postgres   # only needed for the throwaway local database
-npm run dev:db                            # terminal 1: Postgres on localhost:5433
-npm run seed:demo                         # optional: demo org; sign in as demo / demo-password
-npm run build && npm start                # terminal 2: http://localhost:3000
+pnpm install
+pnpm add -D embedded-postgres             # only needed for the throwaway local database
+pnpm dev:db                               # terminal 1: Postgres on localhost:5433
+pnpm seed:demo                            # optional: demo org; sign in as demo / demo-password
+pnpm build && pnpm start                  # terminal 2: http://localhost:3000
 ```
 
 On first start, if there's no system administrator, one is created from `ADMIN_USERNAME` and `ADMIN_PASSWORD`. If
-`ADMIN_PASSWORD` isn't set, a random temporary password is printed to the log. For front-end hot reload, run `npm run dev`
-(API) and `npm run dev:client` (Vite on :5173, which proxies `/api`).
+`ADMIN_PASSWORD` isn't set, a random temporary password is printed to the log. For front-end hot reload, run `pnpm dev`
+(API) and `pnpm dev:client` (Vite on :5173, which proxies `/api`).
 
 Tests (integration, against a real database; they create and drop `npacct_test`):
 
 ```bash
-npm test
+pnpm test
 ```
 
 ## Deploying to Railway
 
 1. Create a Railway project and add a **PostgreSQL** database.
-2. Add a service from this repository. `railway.json` sets the build (`npm run build`), start (`npm start`) and health check (`/api/health`).
+2. Add a service from this repository. `railway.json` sets the build (`pnpm run build`), start (`pnpm start`) and health check (`/api/health`).
 3. Set these service variables:
    - `DATABASE_URL` = `${{Postgres.DATABASE_URL}}`
    - `SESSION_SECRET` = a long random string

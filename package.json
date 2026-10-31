@@ -4,6 +4,7 @@
   "private": true,
   "description": "Simple multi-tenant fund accounting for small non-profit organizations",
   "type": "module",
+  "packageManager": "pnpm@12.16.1",
   "engines": {
     "node": ">=20"
   },

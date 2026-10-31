@@ -1,5 +1,5 @@
 // Creates a demo organization with sample funds, names and a few months of transactions.
-// Usage: npm run seed:demo   (uses DATABASE_URL; creates/updates the user "demo" / "demo-password")
+// Usage: pnpm seed:demo   (uses DATABASE_URL; creates/updates the user "demo" / "demo-password")
 import { pool, withTransaction } from '../server/db.js';
 import { migrate } from '../server/migrate.js';
 import { hashPassword } from '../server/auth.js';

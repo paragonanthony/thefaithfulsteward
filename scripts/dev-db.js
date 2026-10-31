@@ -1,11 +1,11 @@
 // Starts a throwaway local PostgreSQL server for development/testing (no install needed).
-// Requires: npm install --no-save embedded-postgres
+// Requires: pnpm add -D embedded-postgres
 // Connection: postgres://postgres:postgres@localhost:5433/npacct
 import path from 'node:path';
 import fs from 'node:fs';
 
 const { default: EmbeddedPostgres } = await import('embedded-postgres').catch(() => {
-  console.error('embedded-postgres is not installed. Run: npm install --no-save embedded-postgres');
+  console.error('embedded-postgres is not installed. Run: pnpm add -D embedded-postgres');
   process.exit(1);
 });
 
